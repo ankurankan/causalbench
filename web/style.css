@@ -1,3 +1,4 @@
+
 /*------------------------------------
    Variables & Global Reset
 ------------------------------------*/
@@ -160,5 +161,18 @@ footer {
   .chart-container {
     min-width: auto;
   }
+}
+/*------------------------------------
+   Responsive Adjustments for DGMs
+------------------------------------*/
+#dgm-equation {
+    margin-top: 8px;
+    margin-bottom: 16px;
+    font-size: 17px;
+    background: #f5f7fa;
+    border-left: 3px solid #009ddb;
+    padding: 12px 18px;
+    border-radius: 5px;
+    min-height: 32px;
 }
 

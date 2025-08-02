@@ -1,39 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1">
-    <title>Benchmark Dashboard</title>
+    <meta charset="UTF-8">
+    <title>pgmpy Benchmark Dashboard</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax for LaTeX equation rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>Conditional Independence Tests Benchmark</h1>
+        <h1>pgmpy Causal Benchmark</h1>
+        <div id="status-container"></div>
         <div class="controls">
             <label>
-                Data Generating Method:
+                Data Generating Model (DGM):
                 <select id="dgm-select"></select>
             </label>
             <label>
-                CI Test:
-                <select id="ci-test-select"></select>
+                Sample Size:
+                <select id="sample-size-select"></select>
             </label>
             <label>
-                Effect Size:
-                <select id="effect-size-select"></select>
-            </label>
-            <label>
-                Significance Level:
-                <select id="significance-level-select"></select>
-            </label>
-            <label>
-                <span class="csv-label"> Custom Results CSV: </span>
+                <span class="csv-label">Results CSV: </span>
                 <input type="file" id="csv-input" accept=".csv"/>
             </label>
+            <div style="margin-top: 8px;">
+                Currently loaded CSV: <span id="csv-filename">ci_benchmark_summaries.csv[default]</span>
+            </div>
+        </div>
+        <div id="dgm-equation" class="dgm-equation">
+            Select a DGM to view its equation
         </div>
         <div class="charts">
             <div class="chart-container">
-                <h2>Calibration Plot</h2>
+                <h2>Calibration Plot (Type I Error)</h2>
                 <canvas id="calibration-plot"></canvas>
             </div>
             <div class="chart-container">
@@ -42,9 +44,10 @@
             </div>
         </div>
         <footer>
-            <span>© causalbench &mdash; Powered by Chart.js</span>
+            <span>© 2025 pgmpy causalbench &mdash; Powered by Chart.js</span>
         </footer>
     </div>
     <script src="app.js"></script>
 </body>
 </html>
+
