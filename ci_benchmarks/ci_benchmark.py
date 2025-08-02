@@ -1,5 +1,6 @@
 import os
 import warnings
+import shutil
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,10 +8,9 @@ import pandas as pd
 import seaborn as sns
 from tqdm import tqdm
 
-from benchmarks.Data_Generating_mechanisms import DGP_REGISTRY
+from DGM import *
 from pgmpy.estimators import CITests
 
-warnings.filterwarnings("ignore", message="divide by zero encountered in divide")
 
 DGM_TO_CITESTS = {
     "linear_gaussian": ["pearsonr", "gcm", "pillai"],
@@ -18,8 +18,8 @@ DGM_TO_CITESTS = {
     "non_gaussian_continuous": ["gcm", "pillai"],
     "discrete_categorical": [
         "chi_square",
+        "g_sq",
         "log_likelihood",
-        "modified_log_likelihood",
         "pillai",
     ],
     "mixed_data": ["pillai"],
@@ -31,6 +31,7 @@ ci_tests = {
     "pearsonr": CITests.pearsonr,
     "gcm": CITests.gcm,
     "chi_square": CITests.chi_square,
+    "g_sq": CITests.g_sq,
     "log_likelihood": CITests.log_likelihood,
     "modified_log_likelihood": CITests.modified_log_likelihood,
     "pillai": CITests.pillai_trace,
@@ -41,46 +42,54 @@ def run_benchmark(
     dgms=dgms,
     dgm_to_citests=DGM_TO_CITESTS,
     ci_tests=ci_tests,
-    sample_sizes=[20, 40, 100, 500, 1000],
-    n_cond_vars_list=[1, 3],
-    effect_sizes=[0.0, 0.2, 0.5, 1.0],
+    sample_sizes=[20, 40, 80, 160, 320, 640],
+    n_cond_vars=[1, 3, 5, 7],
+    effect_sizes=np.linspace(0, 1, 6),
     n_repeats=10,
 ):
 
     results = []
-    for dgm_name, dgm in tqdm(dgms.items(), desc="DGMs"):
+
+    dgm_pbar = tqdm(dgms.items())
+    for dgm_name, dgm in dgm_pbar:
+        dgm_pbar.set_description(f"Running benchmark for {dgm_name}")
+
         compatible_tests = dgm_to_citests[dgm_name]
-        for n_cond_vars in tqdm(n_cond_vars_list, desc="n_cond_vars", leave=False):
-            for n in tqdm(sample_sizes, desc="sample_size", leave=False):
+        for n_cond_var in tqdm(n_cond_vars, desc="No. of conditional variables", leave=False):
+            for n in tqdm(sample_sizes, desc="Sample Size", leave=False):
                 # Null case (conditionally independent, effect size = 0)
                 for rep in range(n_repeats):
-                    dgm_kwargs = dict(
-                        n_samples=n,
-                        effect_size=0.0,
-                        n_cond_vars=n_cond_vars,
-                        seed=rep,
-                        dependent=False,
-                    )
-                    df = dgm(**dgm_kwargs)
-                    z_cols = [
-                        col
-                        for col, typ in df.attrs["variable_types"].items()
-                        if col.startswith("Z")
-                    ]
+                    df = dgm(n_samples=n,
+                             effect_size=0.0,
+                             n_cond_vars=n_cond_var,
+                             seed=rep,
+                             )
+
+                    z_cols = list(df.drop(['X', 'Y'], axis=1).columns)
+
                     for test_name in compatible_tests:
                         ci_func = ci_tests[test_name]
-                        p_val = ci_func("X", "Y", z_cols, df, boolean=False)
-                        if isinstance(p_val, tuple):
-                            p_val = p_val[1]
+                        result = ci_func("X", "Y", z_cols, df, boolean=False)
+                        # Robust extraction of p-value
+                        if isinstance(result, tuple):
+                            # Heuristic: p-value is usually last in tuple
+                            if isinstance(result[-1], float):
+                                p_val = result[-1]
+                            else:
+                                # fallback to first item
+                                p_val = result[0]
+                        else:
+                            p_val = result
+
                         results.append(
                             {
                                 "dgm": dgm_name,
                                 "sample_size": n,
-                                "n_cond_vars": n_cond_vars,
+                                "n_cond_vars": n_cond_var,
                                 "effect_size": 0.0,
                                 "repeat": rep,
                                 "ci_test": test_name,
-                                "dependent": False,
+                                "cond_independent": True,
                                 "p_value": p_val,
                             }
                         )
@@ -89,38 +98,39 @@ def run_benchmark(
                     if eff == 0.0:
                         continue
                     for rep in range(n_repeats):
-                        dgm_kwargs = dict(
-                            n_samples=n,
-                            effect_size=eff,
-                            n_cond_vars=n_cond_vars,
-                            seed=rep,
-                            dependent=True,
-                        )
-                        df = dgm(**dgm_kwargs)
-                        z_cols = [
-                            col
-                            for col, typ in df.attrs["variable_types"].items()
-                            if col.startswith("Z")
-                        ]
+                        df = dgm(n_samples=n,
+                                 effect_size=eff,
+                                 n_cond_vars=n_cond_var,
+                                 seed=rep,
+                                 )
+                        z_cols = list(df.drop(['X', 'Y'], axis=1).columns)
+
                         for test_name in compatible_tests:
                             ci_func = ci_tests[test_name]
-                            p_val = ci_func("X", "Y", z_cols, df, boolean=False)
-                            if isinstance(p_val, tuple):
-                                p_val = p_val[1]
+                            result = ci_func("X", "Y", z_cols, df, boolean=False)
+                            # Robust extraction of p-value
+                            if isinstance(result, tuple):
+                                if isinstance(result[-1], float):
+                                    p_val = result[-1]
+                                else:
+                                    p_val = result[0]
+                            else:
+                                p_val = result
+
                             results.append(
                                 {
                                     "dgm": dgm_name,
                                     "sample_size": n,
-                                    "n_cond_vars": n_cond_vars,
+                                    "n_cond_vars": n_cond_var,
                                     "effect_size": eff,
                                     "repeat": rep,
                                     "ci_test": test_name,
-                                    "dependent": True,
+                                    "cond_independent": False,
                                     "p_value": p_val,
                                 }
                             )
-    df_results = pd.DataFrame(results)
-    return df_results
+
+    return pd.DataFrame(results)
 
 
 def compute_summary(df_results, significance_levels=[0.001, 0.01, 0.05, 0.1]):
@@ -130,8 +140,8 @@ def compute_summary(df_results, significance_levels=[0.001, 0.01, 0.05, 0.1]):
     summary_rows = []
     group_cols = ["dgm", "sample_size", "n_cond_vars", "effect_size", "ci_test"]
     for keys, group in df_results.groupby(group_cols):
-        null_group = group[~group["dependent"]]
-        alt_group = group[group["dependent"]]
+        null_group = group[group["cond_independent"]]
+        alt_group = group[~group["cond_independent"]]
         for sl in significance_levels:
             type1 = (
                 (null_group["p_value"] < sl).mean() if not null_group.empty else np.nan
@@ -306,3 +316,11 @@ if __name__ == "__main__":
         os.remove(raw_csv_path)
 
     plot_benchmarks(df_summary)
+
+ ##  Making a copy of the result to the web directory
+    web_results_dir = os.path.join("web", "results")
+    os.makedirs(web_results_dir, exist_ok=True)
+    src = os.path.join("results", "ci_benchmark_summaries.csv")
+    dst = os.path.join(web_results_dir, "ci_benchmark_summaries.csv")
+    shutil.copyfile(src, dst)
+    print(f"Copied summary CSV to {dst} for web UI.")

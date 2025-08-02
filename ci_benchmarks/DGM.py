@@ -2,13 +2,6 @@ import numpy as np
 import pandas as pd
 from scipy.stats import bernoulli, expon, multinomial, norm, uniform
 
-DGP_REGISTRY = {
-    "linear_gaussian": linear_gaussian,
-    "nonlinear_gaussian": nonlinear_gaussian,
-    "discrete_categorical": discrete_categorical,
-    "mixed_data": mixed_data,
-    "non_gaussian_continuous": non_gaussian_continuous,
-}
 
 def linear_gaussian(
     n_samples=1000,
