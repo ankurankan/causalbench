@@ -46,11 +46,11 @@ def linear_gaussian(
     Zs = rng.normal(size=(n_samples, n_cond_vars))
 
     # Step 2: Sample X.
-    coef_ZX = rng.uniform(0, 1, size=n_cond_vars)
+    coef_ZX = rng.uniform(-1, 1, size=n_cond_vars)
     X = Zs @ coef_ZX + rng.normal(size=n_samples)
 
     # Step 3: Sample Y.
-    coef_ZY = rng.uniform(0, 1, size=n_cond_vars)
+    coef_ZY = rng.uniform(-1, 1, size=n_cond_vars)
     Y = Zs @ coef_ZY + effect_size * X + rng.normal(size=n_samples)
 
     # Step 4: Create a dataframe and return.
